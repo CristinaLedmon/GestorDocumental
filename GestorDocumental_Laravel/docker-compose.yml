@@ -1,0 +1,67 @@
+services:
+    laravel_app:
+        build:
+            context: .
+            dockerfile: docker/Dockerfile
+        container_name: ${PROJECT_NAME}_laravel_app
+        working_dir: /var/www/html
+        volumes:
+            - ./src:/var/www/html
+            - ./.env:/var/www/html/.env
+            - db_data:/var/lib/postgresql/data
+        environment:
+            - APP_ENV=local
+            - APP_DEBUG=true
+            - APP_KEY=${APP_KEY}
+            - DB_HOST=${PROJECT_NAME}_pg_db
+            - DB_PORT=5432
+            - DB_DATABASE=${DB_DATABASE}
+            - DB_USERNAME=${DB_USERNAME}
+            - DB_PASSWORD=${DB_PASSWORD}
+            - REDIS_HOST=${PROJECT_NAME}_redis
+            - REDIS_PORT=6379
+            - MAIL_HOST=${PROJECT_NAME}_mailhog
+            - MAIL_PORT=1025
+        entrypoint: [ "sh", "-c", "composer install && php artisan migrate && php artisan db:seed && php artisan optimize:clear && php-fpm" ]
+        depends_on:
+            - pg_db
+            - redis
+            - mailhog
+
+    nginx:
+        image: nginx:latest
+        container_name: ${PROJECT_NAME}_nginx
+        ports:
+            - "8000:80"
+        volumes:
+            - ./src:/var/www/html
+            - ./docker/nginx/default.conf:/etc/nginx/conf.d/default.conf
+        depends_on:
+            - laravel_app
+
+    pg_db:
+        image: postgres:latest
+        container_name: ${PROJECT_NAME}_pg_db
+        environment:
+            POSTGRES_USER: ${DB_USERNAME}
+            POSTGRES_PASSWORD: ${DB_PASSWORD}
+            POSTGRES_DB: ${DB_DATABASE}
+        ports:
+            - "5432:5432"
+        volumes:
+            - db_data:/var/lib/postgresql/data
+
+    redis:
+        image: redis:latest
+        container_name: ${PROJECT_NAME}_redis
+        ports:
+            - "6379:6379"
+
+    mailhog:
+        image: mailhog/mailhog:latest
+        container_name: ${PROJECT_NAME}_mailhog
+        ports:
+            - "8025:8025"
+
+volumes:
+    db_data:

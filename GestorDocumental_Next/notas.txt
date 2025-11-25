@@ -1,0 +1,3 @@
+COMPONENTES:
+    GENERICSELECT:
+        *A este componente se le puede pasar dos parametros endpoint y enpoint_princiapl

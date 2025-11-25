@@ -1,0 +1,23 @@
+.rdp-caption {
+  display: flex;
+  justify-content: space-between;
+  padding: 0 1rem;
+}
+.rdp-caption_dropdowns {
+  display: flex;
+  justify-content: center;
+  gap: 0.15rem;
+  width: 100%;
+}
+.rdp-dropdown_month div.text-sm.font-medium {
+  display: none;
+}
+.rdp-dropdown_year div.text-sm.font-medium {
+  display: none;
+}
+.rdp-nav {
+  display: none;
+}
+.rdp-vhidden {
+  display: none;
+}
