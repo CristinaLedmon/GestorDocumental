@@ -1,5 +1,4 @@
 "use client"
-
 import React, { useEffect, useState } from "react"
 import fetchModel from "@/lib/fetch-utils"
 import useAuth from "@/hooks/useAuth"
@@ -24,49 +23,6 @@ interface DocumentType {
   created_at: string
 }
 
-// ====================DOCUMENT ITEM ==================================
-const DocumentItem: React.FC<{
-  doc: DocumentType
-  toggleSelect: (id: number) => void
-  selected: boolean
-  setDraggingDocument: (doc: DocumentType | null) => void
-}> = ({ doc, toggleSelect, selected, setDraggingDocument }) => {
-  const isImage = /\.(jpe?g|png|gif|bmp|webp|svg)$/i.test(doc.name)
-  const IconComponent = isImage ? Image : File
-
-  const openDocument = () => {
-    const backend = process.env.NEXT_PUBLIC_LARAVEL_URL
-    if (backend) window.open(`${backend}/storage/${doc.file_path}`, "_blank")
-  }
-
-  return (
-    <div
-      className="relative"
-      draggable
-      onDragStart={() => setDraggingDocument(doc)}
-      onDragEnd={() => setDraggingDocument(null)}
-    >
-      <div
-        className="p-4 bg-white border rounded-xl shadow-sm hover:shadow-md transition-all cursor-pointer"
-        onDoubleClick={openDocument}
-      >
-        <IconComponent className="w-10 h-10 mb-2 text-gray-500" />
-        <p className="truncate text-sm font-medium text-gray-800">{doc.name}</p>
-
-        <div className="absolute top-2 right-2 flex gap-1">
-          <input
-            type="checkbox"
-            checked={selected}
-            onClick={(e) => e.stopPropagation()}
-            onChange={() => toggleSelect(doc.id)}
-            className="w-4 h-4 accent-yellow-500 border-gray-300 rounded focus:ring-2 focus:ring-yellow-500"
-          />
-
-        </div>
-      </div>
-    </div>
-  )
-}
 
 // =====================PÁGINA PRINCIPAL =================================
 export default function FoldersPage() {
@@ -94,6 +50,23 @@ export default function FoldersPage() {
 
   //buscador
   const [searchTerm, setSearchTerm] = useState("")
+
+  //editar nombre carpetas
+  const [editFolderName, setEditFolderName] = useState("");
+
+  useEffect(() => {
+    if (infoModalFolder) {
+      setEditFolderName(infoModalFolder.name);
+    }
+  }, [infoModalFolder]);
+
+  // editar nombre documentos
+  const [editDocumentName, setEditDocumentName] = useState('');
+    useEffect(() => {
+    if (infoModalDocument) {
+      setEditDocumentName(infoModalDocument.name);
+    }
+  }, [infoModalDocument]);
 
 
   // ====================== LOAD DATA ================================
@@ -269,6 +242,7 @@ export default function FoldersPage() {
   // - La carpeta coincide
   // - Algún documento dentro (cualquier nivel) coincide
   // - Alguna subcarpeta dentro coincide
+
   const folderMatchesSearch = (folderId: number | null, term: string): boolean => {
     const subfolders = allFolders.filter(f => f.parent_id === folderId)
     const docs = allDocuments.filter(d => d.folder_id === folderId)
@@ -278,8 +252,7 @@ export default function FoldersPage() {
     if (folder && folder.name.toLowerCase().includes(term)) return true
     if (docs.some(d => d.name.toLowerCase().includes(term))) return true
 
-    return subfolders.some(sub => folderMatchesSearch(sub.id, term))
-  }
+    return subfolders.some(sub => folderMatchesSearch(sub.id, term)) }
 
 
 
@@ -494,6 +467,56 @@ const downloadDocument = async (doc: DocumentType) => {
     }
   };
 
+  // =================== FUNCION PARA EDITAR NOMBRE CARPETA ===================================
+  const updateFolderName = async () => {
+    if (!infoModalFolder) return;
+    if (!editFolderName.trim()) return alert("El nombre no puede estar vacío");
+
+    try {
+      await fetchModel(`folders/${infoModalFolder.id}`, {
+        method: "PUT", // <--- aquí usamos PUT
+        body: { name: editFolderName },
+        credentials: "include"
+      });
+
+      // Recargar datos
+      await loadAllData();
+      await loadContent(currentFolder?.id ?? null);
+
+      // Cerrar modal opcionalmente
+      setInfoModalFolder(null);
+    } catch (err) {
+      console.error("Error renombrando carpeta:", err);
+      alert("No se pudo renombrar la carpeta");
+    }
+  };
+
+  // =================== FUNCION PARA EDITAR NOMBRE DOCUMENTO ===================================
+
+
+  const updateDocumentName = async () => {
+    if (!infoModalDocument) return;
+    if (!editDocumentName.trim()) return alert("El nombre no puede estar vacío");
+
+    try {
+      // Usamos PUT a la ruta de renombrar documento
+      await fetchModel(`documents/${infoModalDocument.id}/rename`, {
+        method: "PUT",
+        body: { new_name: editDocumentName },
+        credentials: "include"
+      });
+
+      // Recargar datos
+      await loadAllData(); // tu función que recarga documentos y carpetas
+      await loadContent(currentFolder?.id ?? null); // recarga el contenido actual
+
+      // Cerrar modal opcionalmente
+      setInfoModalDocument(null);
+    } catch (err) {
+      console.error("Error renombrando documento:", err);
+      alert("No se pudo renombrar el documento");
+    }
+  };
 
   // ======================= RENDER GENERAL ===============================
   if (isLoading) return <p className="p-4">Cargando usuario...</p>
@@ -503,275 +526,280 @@ const downloadDocument = async (doc: DocumentType) => {
 
 
   // ======================= RETURN ===============================
+return (
+  <div className="flex h-screen bg-gray-50">
 
+    {/* SIDEBAR */}
+    <aside className="sidebar-scroll w-72 bg-white border-r shadow-sm p-4 overflow-y-auto">
+      <h2 className="text-lg font-semibold text-gray-700 mb-4">Explorador</h2>
 
-  return (
-    <div className="flex h-screen bg-gray-50">
+      {/* buscador */}
+      <Input
+        placeholder="Buscar carpetas o documentos..."
+        value={searchTerm}
+        onChange={(e) => setSearchTerm(e.target.value)}
+        className="mb-4"
+      />
 
-      {/* SIDEBAR */}
-      <aside className="sidebar-scroll w-72 bg-white border-r shadow-sm p-4 overflow-y-auto">
-        <h2 className="text-lg font-semibold text-gray-700 mb-4">Explorador</h2>
+      {renderFolderTree()}
+    </aside>
 
-        {/* buscador */}
-        <Input
-          placeholder="Buscar carpetas o documentos..."
-          value={searchTerm}
-          onChange={(e) => setSearchTerm(e.target.value)}
-          className="mb-4"
-        />
+    {/* MAIN */}
+    <main className="flex-1 p-6 overflow-y-auto">
 
-
-        {renderFolderTree()}
-      </aside>
-
-      {/* MAIN */}
-      <main className="flex-1 p-6 overflow-y-auto">
-
-        {/* TOPBAR */}
-        <div className="flex items-center justify-between mb-6">
-          <div className="flex items-center gap-3">
-            {currentFolder && (
-              <Button variant="outline" onClick={goBack}>
-                <ArrowLeft className="mr-2 w-4 h-4" /> Atrás
-              </Button>
-            )}
-            <h1 className="text-3xl font-semibold text-gray-800">
-              {currentFolder ? currentFolder.name : "Mis Carpetas"}
-            </h1>
-          </div>
-
-          {/* BOTONES DERECHA */}
-          <div className="flex items-center gap-2">
-            <Input
-              placeholder="Nueva carpeta"
-              value={newFolderName}
-              onChange={(e) => setNewFolderName(e.target.value)}
-              className="w-48"
-            />
-            <Button onClick={createFolder}><Plus /></Button>
-
-            <input
-              type="file"
-              id="uploadFiles"
-              className="hidden"
-              multiple
-              onChange={handleFileUpload}
-            />
-            <Button onClick={() => document.getElementById("uploadFiles")?.click()}>
-              <Upload />
+      {/* TOPBAR */}
+      <div className="flex items-center justify-between mb-6">
+        <div className="flex items-center gap-3">
+          {currentFolder && (
+            <Button variant="outline" onClick={goBack}>
+              <ArrowLeft className="mr-2 w-4 h-4" /> Atrás
             </Button>
+          )}
+          <h1 className="text-3xl font-semibold text-gray-800">
+            {currentFolder ? currentFolder.name : "Mis Carpetas"}
+          </h1>
+        </div>
 
-            {(selectedFolders.length > 0 || selectedDocuments.length > 0) && (
-              <Button variant="destructive" onClick={deleteSelectedItems}>
-                <Trash2 className="w-4 h-4 mr-1" /> Borrar
-              </Button>
-          
+        {/* BOTONES DERECHA */}
+        <div className="flex items-center gap-2">
+          <Input
+            placeholder="Nueva carpeta"
+            value={newFolderName}
+            onChange={(e) => setNewFolderName(e.target.value)}
+            className="w-48"
+          />
+          <Button onClick={createFolder}><Plus /></Button>
 
-            )}
+          <input
+            type="file"
+            id="uploadFiles"
+            className="hidden"
+            multiple
+            onChange={handleFileUpload}
+          />
+          <Button onClick={() => document.getElementById("uploadFiles")?.click()}>
+            <Upload />
+          </Button>
 
-            {/* COPIAR (barra superior) */}
+          {(selectedFolders.length > 0 || selectedDocuments.length > 0) && (
+            <Button variant="destructive" onClick={deleteSelectedItems}>
+              <Trash2 className="w-4 h-4 mr-1" /> Borrar
+            </Button>
+          )}
 
-            {(selectedFolders.length > 0 || selectedDocuments.length > 0) && (
-              <Button
-                onClick={copySelectedItems}
-                className="bg-yellow-500 text-white hover:bg-yellow-600"
-              >
+          {(selectedFolders.length > 0 || selectedDocuments.length > 0) && (
+            <Button
+              onClick={copySelectedItems}
+              className="bg-yellow-500 text-white hover:bg-yellow-600"
+            >
               <Copy className="w-4 h-4 mr-1" /> Copiar
+            </Button>
+          )}
+
+          {selectedFolders.length > 0 && (() => {
+            const selectedFolder = allFolders.find(f => f.id === selectedFolders[0]) ?? null;
+            if (!selectedFolder) return null;
+
+            return (
+              <Button
+                onClick={() => {
+                  downloadFolder(selectedFolder);
+                  setSelectedFolders([]);
+                }}
+              >
+                <Download className="w-4 h-4 mr-1" /> Descargar
               </Button>
-            )}
+            );
+          })()}
 
+          {selectedDocuments.length > 0 && (() => {
+            const selectedDoc = allDocuments.find(d => d.id === selectedDocuments[0]) ?? null;
+            if (!selectedDoc) return null;
 
-
-            {/* INFO Y DESCARGAR (barra superior) */}
-            {selectedFolders.length > 0 && (() => {
-              const selectedFolder = allFolders.find(f => f.id === selectedFolders[0]) ?? null;
-              if (!selectedFolder) return null;
-
-              return (
-                <>
-                  <Button
-                    onClick={() => setInfoModalFolder(selectedFolder)}
-                  >
-                    <Info className="w-4 h-4 mr-1" /> Info
-                  </Button>
-
-                  <Button
-                    onClick={() => {
-                      downloadFolder(selectedFolder); // función que descarga la carpeta como ZIP
-                      setSelectedFolders([]);         // opcional: deselecciona carpeta
-                    }}
-     
-                    
-                  >
-                    <Download className="w-4 h-4 mr-1" /> Descargar
-                  </Button>
-                </>
-              );
-            })()}
-
-
-            {selectedDocuments.length > 0 && (
+            return (
               <>
-                <Button
-                  onClick={() => {
-                    const selectedDoc = allDocuments.find(d => d.id === selectedDocuments[0]) ?? null;
-                    if (selectedDoc) setInfoModalDocument(selectedDoc);
-                  }}
-                >
-                  <Info className="w-4 h-4 mr-1" /> Info
-                </Button>
-
-                <Button
-                  onClick={() => {
-                    const selectedDoc = allDocuments.find(d => d.id === selectedDocuments[0]) ?? null;
-                    if (selectedDoc) {
-                      downloadDocument(selectedDoc); // llama a la descarga
-                      setSelectedDocuments([]);       // deselecciona el documento
-                    }
-                  }}
-
-                  >
-                    <Download className="w-4 h-4 mr-1" /> Descargar
+                
+                <Button onClick={() => { downloadDocument(selectedDoc); setSelectedDocuments([]); }}>
+                  <Download className="w-4 h-4 mr-1" /> Descargar
                 </Button>
               </>
-            )}
-
-          </div>
+            );
+          })()}
         </div>
+      </div>
 
-        {/* BREADCRUMBS */}
-        <div className="flex items-center gap-1 text-gray-500 mb-4">
-          <span
-            className="cursor-pointer hover:text-gray-700"
-            onClick={() => {
-              setCurrentFolder(null)
-              loadContent(null)
-            }}
-          >
-            Inicio
-          </span>
+      {/* BREADCRUMBS */}
+      <div className="flex items-center gap-1 text-gray-500 mb-4">
+        <span
+          className="cursor-pointer hover:text-gray-700"
+          onClick={() => {
+            setCurrentFolder(null)
+            loadContent(null)
+          }}
+        >
+          Inicio
+        </span>
 
-          {currentFolder && getBreadcrumbs().map((folder) => (
-            <React.Fragment key={folder.id}>
-              <ChevronRight size={14} />
-              <span
-                className="cursor-pointer hover:text-gray-700"
-                onDoubleClick={() => openFolder(folder)}
-              >
-                {folder.name}
-              </span>
-            </React.Fragment>
-          ))}
-        </div>
+        {currentFolder && getBreadcrumbs().map((folder) => (
+          <React.Fragment key={folder.id}>
+            <ChevronRight size={14} />
+            <span
+              className="cursor-pointer hover:text-gray-700"
+              onDoubleClick={() => openFolder(folder)}
+            >
+              {folder.name}
+            </span>
+          </React.Fragment>
+        ))}
+      </div>
 
-        {/* GRID */}
-        {loading ? (
-          <p className="text-gray-500">Cargando...</p>
-        ) : (
-          <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-5 lg:grid-cols-6 gap-6">
+      {/* GRID */}
+      {loading ? (
+        <p className="text-gray-500">Cargando...</p>
+      ) : (
+        <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-5 lg:grid-cols-6 gap-6">
 
-            {folders.map((folder) => (
-  <div
-    key={folder.id}
-    className="relative p-4 bg-white border rounded-xl shadow-sm hover:shadow-md cursor-pointer transition-all"
-    draggable
-    onDragStart={() => setDraggingFolder(folder)}
-    onDragEnd={() => setDraggingFolder(null)}
-    onDragOver={(e) => e.preventDefault()}
-    onDrop={() => {
-      if (draggingFolder && draggingFolder.id !== folder.id) {
-        moveFolder(draggingFolder.id, folder.id)
-      }
-      if (draggingDocument) {
-        moveDocument(draggingDocument.id, folder.id)
-      }
-    }}
-    onDoubleClick={() => openFolder(folder)}
-  >
-    <Folder className="w-12 h-12 text-yellow-500 mb-2" />
-    <p className="truncate font-medium text-gray-800">{folder.name}</p>
+          {/* CARPETAS */}
+          {folders.map((folder) => (
+            <div
+              key={folder.id}
+              className="relative p-4 bg-white border rounded-xl shadow-sm hover:shadow-md cursor-pointer transition-all"
+              draggable
+              onDragStart={() => setDraggingFolder(folder)}
+              onDragEnd={() => setDraggingFolder(null)}
+              onDragOver={(e) => e.preventDefault()}
+              onDrop={() => {
+                if (draggingFolder && draggingFolder.id !== folder.id) moveFolder(draggingFolder.id, folder.id)
+                if (draggingDocument) moveDocument(draggingDocument.id, folder.id)
+              }}
+              onDoubleClick={() => openFolder(folder)}
+            >
+              <Folder className="w-12 h-12 text-yellow-500 mb-2" />
+              <p className="truncate font-medium text-gray-800">{folder.name}</p>
 
-    {/* Checkbox en la esquina superior derecha */}
-    <input
-      type="checkbox"
-      checked={selectedFolders.includes(folder.id)}
-      onClick={(e) => e.stopPropagation()}
-      onChange={() => toggleSelectFolder(folder.id)}
-      className="absolute top-2 right-2 w-4 h-4 accent-yellow-500 border-gray-300 rounded focus:ring-2 focus:ring-yellow-500"
-    />
-
-    {/* Botón de info solo icono en esquina inferior derecha */}
-    <button
-      onClick={(e) => {
-        e.stopPropagation();
-        setInfoModalFolder(folder);
-      }}
-      className="absolute bottom-2 right-2 text-gray-600 hover:text-yellow-500"
-    >
-      <Info className="w-5 h-5" />
-    </button>
-
-  </div>
-))}
-
-
-            {/* ==== DOCUMENTOS EN GRID ==== */}
-            {documents.map((doc) => (
-              <DocumentItem
-                key={doc.id}
-                doc={doc}
-                selected={selectedDocuments.includes(doc.id)}
-                toggleSelect={toggleSelectDocument}
-                setDraggingDocument={setDraggingDocument}
+              <input
+                type="checkbox"
+                checked={selectedFolders.includes(folder.id)}
+                onClick={(e) => e.stopPropagation()}
+                onChange={() => toggleSelectFolder(folder.id)}
+                className="absolute top-2 right-2 w-4 h-4 accent-yellow-500 border-gray-300 rounded focus:ring-2 focus:ring-yellow-500"
               />
-            ))}
-          </div>
-        )}
 
-       {/* MODAL INFO CARPETA */}
-        {infoModalFolder && (
-          <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 px-4">
-            <div className="bg-white p-6 rounded-lg w-full max-w-md max-h-[80vh] overflow-y-auto break-words relative">
               <button
-                className="absolute top-2 right-2 text-gray-500 hover:text-gray-800"
-                onClick={() => {
-                  setInfoModalFolder(null)
-                  setSelectedFolders([]) // deselecciona carpeta
-                }}                
+                onClick={(e) => { e.stopPropagation(); setInfoModalFolder(folder); }}
+                className="absolute bottom-2 right-2 text-gray-600 hover:text-yellow-500"
               >
-                ✖
+                <Info className="w-5 h-5" />
               </button>
-
-              <h3 className="text-xl font-semibold mb-4">Información de la carpeta</h3>
-
-              <p><strong>Nombre:</strong> {infoModalFolder.name}</p>
-              <p><strong>ID:</strong> {infoModalFolder.id}</p>
-              <p><strong>Creada:</strong> {infoModalFolder.created_at}</p>
-              <p><strong>Padre:</strong> {infoModalFolder.parent_id ?? "Ninguno"}</p>
             </div>
+          ))}
+
+          {/* DOCUMENTOS */}
+          {documents.map((doc) => {
+            const isImage = /\.(jpe?g|png|gif|bmp|webp|svg)$/i.test(doc.name);
+            const IconComponent = isImage ? Image : File;
+
+            return (
+              <div
+                key={doc.id}
+                className="relative p-4 bg-white border rounded-xl shadow-sm hover:shadow-md cursor-pointer transition-all"
+                draggable
+                onDragStart={() => setDraggingDocument(doc)}
+                onDragEnd={() => setDraggingDocument(null)}
+                onDoubleClick={() => {
+                  const backend = process.env.NEXT_PUBLIC_LARAVEL_URL;
+                  if (backend) window.open(`${backend}/storage/${doc.file_path}`, "_blank");
+                }}
+              >
+                <IconComponent className="w-12 h-12 text-gray-500 mb-2" />
+                <p className="truncate font-medium text-gray-800">{doc.name}</p>
+
+                <input
+                  type="checkbox"
+                  checked={selectedDocuments.includes(doc.id)}
+                  onClick={(e) => e.stopPropagation()}
+                  onChange={() => toggleSelectDocument(doc.id)}
+                  className="absolute top-2 right-2 w-4 h-4 accent-yellow-500 border-gray-300 rounded focus:ring-2 focus:ring-yellow-500"
+                />
+
+                <button
+                  onClick={(e) => { e.stopPropagation(); setInfoModalDocument(doc); }}
+                  className="absolute bottom-2 right-2 text-gray-600 hover:text-yellow-500"
+                >
+                  <Info className="w-5 h-5" />
+                </button>
+              </div>
+            );
+          })}
+
+        </div>
+      )}
+
+      {/* MODAL INFO CARPETA */}
+      {infoModalFolder && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 px-4">
+          <div className="bg-white p-6 rounded-lg w-full max-w-md max-h-[80vh] overflow-y-auto break-words relative">
+            <button
+              className="absolute top-2 right-2 text-gray-500 hover:text-gray-800"
+              onClick={() => { setInfoModalFolder(null); setSelectedFolders([]); }}
+            >
+              ✖
+            </button>
+
+            <h3 className="text-xl font-semibold mb-4">Información de la carpeta</h3>
+
+            <div className="flex gap-2 items-center mb-2">
+              <Input
+                value={editFolderName}
+                onChange={(e) => setEditFolderName(e.target.value)}
+                className="flex-1"
+              />
+              <Button
+                onClick={updateFolderName}
+                className="bg-yellow-500 text-white hover:bg-yellow-600"
+              >
+                Guardar
+              </Button>
+            </div>
+
+            <p><strong>ID:</strong> {infoModalFolder.id}</p>
+            <p><strong>Creada:</strong> {new Date(infoModalFolder.created_at).toLocaleString()}</p>
+            <p><strong>Padre:</strong> {infoModalFolder.parent_id ?? "Ninguno"}</p>
           </div>
-        )}
+        </div>
+      )}
 
-
-     {/* MODAL INFO DOCUMENTO */}
+      {/* MODAL INFO DOCUMENTO */}
       {infoModalDocument && (
         <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 px-4">
           <div className="bg-white p-6 rounded-lg w-full max-w-md max-h-[80vh] overflow-y-auto break-words relative">
             <button
               className="absolute top-2 right-2 text-gray-500 hover:text-gray-800"
-              onClick={() => {
-                setInfoModalDocument(null)
-                setSelectedDocuments([]) // deselecciona documento
-              }}
+              onClick={() => { setInfoModalDocument(null); setSelectedDocuments([]); }}
             >
               ✖
             </button>
 
             <h3 className="text-xl font-semibold mb-4">Información del documento</h3>
 
-            <p><strong>Nombre:</strong> {infoModalDocument.name}</p>
+            {/* <p><strong>Nombre:</strong> {infoModalDocument.name}</p> */}
+            {/* Nombre editable */}
+            <div className="flex gap-2 items-center mb-2">
+              <Input
+                value={editDocumentName}
+                onChange={(e) => setEditDocumentName(e.target.value)}
+                className="flex-1"
+              />
+              <Button
+                onClick={updateDocumentName}
+                className="bg-yellow-500 text-white hover:bg-yellow-600"
+              >
+                Guardar
+              </Button>
+            </div>
+
             <p><strong>ID:</strong> {infoModalDocument.id}</p>
-            <p><strong>Creado:</strong> {infoModalDocument.created_at}</p>
+            <p><strong>Creado:</strong> {new Date(infoModalDocument.created_at).toLocaleString()}</p>
             <p><strong>Carpeta:</strong> {infoModalDocument.folder_id ?? "Ninguna"}</p>
 
             <p>
@@ -789,8 +817,9 @@ const downloadDocument = async (doc: DocumentType) => {
         </div>
       )}
 
+    </main>
+  </div>
+)
 
-      </main>
-    </div>
-  )
+  
 }
