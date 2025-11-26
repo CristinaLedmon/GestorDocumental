@@ -763,7 +763,7 @@ return (
             </div>
 
             <p><strong>ID:</strong> {infoModalFolder.id}</p>
-            <p><strong>Creada:</strong> {new Date(infoModalFolder.created_at).toLocaleString()}</p>
+            <p><strong>Creada:</strong> {new Date(infoModalFolder.created_at).toLocaleString()}</p> 
             <p><strong>Padre:</strong> {infoModalFolder.parent_id ?? "Ninguno"}</p>
           </div>
         </div>

@@ -186,54 +186,54 @@ class FolderController extends Controller
     /**
      * Devuelve árbol completo de carpetas y documentos
      */
-    public function tree()
-    {
-        $user = Auth::user();
+    // public function tree()
+    // {
+    //     $user = Auth::user();
 
-        // CORRECCIÓN: cargar relación 'parent'
-        $folders = Folder::with('parent')->where('user_id', $user->id)->orderBy('name')->get();
-        $documents = Document::where('user_id', $user->id)->orderBy('name')->get();
+    //     // CORRECCIÓN: cargar relación 'parent'
+    //     $folders = Folder::with('parent')->where('user_id', $user->id)->orderBy('name')->get();
+    //     $documents = Document::where('user_id', $user->id)->orderBy('name')->get();
 
-        $foldersArr = $folders->map(fn($f) => [
-            'id' => $f->id,
-            'name' => $f->name,
-            'parent_id' => $f->parent_id,
-            'created_at' => $f->created_at,
-            'full_path' => $f->full_path,
-        ])->toArray();
+    //     $foldersArr = $folders->map(fn($f) => [
+    //         'id' => $f->id,
+    //         'name' => $f->name,
+    //         'parent_id' => $f->parent_id,
+    //         'created_at' => $f->created_at,
+    //         'full_path' => $f->full_path,
+    //     ])->toArray();
 
-        $documentsArr = $documents->map(fn($d) => [
-            'id' => $d->id,
-            'name' => $d->name,
-            'file_path' => $d->file_path,
-            'folder_id' => $d->folder_id,
-            'created_at' => $d->created_at,
-            'url' => $d->url,
-        ])->toArray();
+    //     $documentsArr = $documents->map(fn($d) => [
+    //         'id' => $d->id,
+    //         'name' => $d->name,
+    //         'file_path' => $d->file_path,
+    //         'folder_id' => $d->folder_id,
+    //         'created_at' => $d->created_at,
+    //         'url' => $d->url,
+    //     ])->toArray();
 
-        $buildTree = function ($parentId) use (&$buildTree, $foldersArr, $documentsArr) {
-            $nodes = [];
-            foreach ($foldersArr as $f) {
-                if ($f['parent_id'] === $parentId) {
-                    $children = $buildTree($f['id']);
-                    $docs = array_values(array_filter($documentsArr, fn($d) => $d['folder_id'] === $f['id']));
-                    $nodes[] = array_merge($f, [
-                        'children' => $children,
-                        'documents' => $docs,
-                    ]);
-                }
-            }
-            return $nodes;
-        };
+    //     $buildTree = function ($parentId) use (&$buildTree, $foldersArr, $documentsArr) {
+    //         $nodes = [];
+    //         foreach ($foldersArr as $f) {
+    //             if ($f['parent_id'] === $parentId) {
+    //                 $children = $buildTree($f['id']);
+    //                 $docs = array_values(array_filter($documentsArr, fn($d) => $d['folder_id'] === $f['id']));
+    //                 $nodes[] = array_merge($f, [
+    //                     'children' => $children,
+    //                     'documents' => $docs,
+    //                 ]);
+    //             }
+    //         }
+    //         return $nodes;
+    //     };
 
-        $tree = $buildTree(null);
+    //     $tree = $buildTree(null);
 
-        return response()->json([
-            'tree' => $tree,
-            'folders_count' => count($foldersArr),
-            'documents_count' => count($documentsArr),
-        ]);
-    }
+    //     return response()->json([
+    //         'tree' => $tree,
+    //         'folders_count' => count($foldersArr),
+    //         'documents_count' => count($documentsArr),
+    //     ]);
+    // }
 
     /**
      * Devuelve todas las carpetas del usuario en forma plana

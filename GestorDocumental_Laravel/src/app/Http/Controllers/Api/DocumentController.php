@@ -211,6 +211,49 @@ class DocumentController extends Controller
         ]);
     }
 
+    /**
+ * Renombrar un documento
+ */
+public function rename(Request $request, string $id)
+{
+    $user = Auth::user();
+
+    $document = Document::where('id', $id)
+        ->where('user_id', $user->id)
+        ->firstOrFail();
+
+    $validated = $request->validate([
+        'new_name' => 'required|string|max:255',
+    ]);
+
+    $newName = $validated['new_name'];
+
+    // Obtener la extensión del archivo actual
+    $extension = pathinfo($document->file_path, PATHINFO_EXTENSION);
+
+    // Construir nuevo nombre de archivo con la misma extensión
+    $newFileName = pathinfo($newName, PATHINFO_FILENAME) . '.' . $extension;
+
+    // Construir nueva ruta en storage
+    $folderPath = $document->folder ? $this->buildFolderPath($document->folder) : '';
+    $newPath = $folderPath ? "documents/{$folderPath}/{$newFileName}" : "documents/{$newFileName}";
+
+    // Renombrar archivo en storage
+    if (Storage::disk('public')->exists($document->file_path)) {
+        Storage::disk('public')->move($document->file_path, $newPath);
+    }
+
+    // Actualizar en base de datos
+    $document->update([
+        'name' => $newName,
+        'file_path' => $newPath,
+    ]);
+
+    return response()->json([
+        'message' => 'Documento renombrado correctamente',
+        'document' => $document,
+    ]);
+}
 
 
 
