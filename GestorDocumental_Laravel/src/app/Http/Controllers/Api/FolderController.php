@@ -334,68 +334,154 @@ class FolderController extends Controller
         ]);
     }
 
+    // esta función download NP PERMITE descargar  carpetas SI ESTAN VACÍAS
+
+    // public function download(Request $request, string $id)
+    // {
+    //     // ------------------- AUTENTICACIÓN -------------------
+    //     $token = $request->query('token');
+
+    //     if ($token) {
+    //         // Buscar usuario por token (asegúrate de tener api_token en users)
+    //         $user = \App\Models\User::where('api_token', $token)->first();
+    //         if (!$user) {
+    //             return response()->json(['message' => 'Token inválido'], 401);
+    //         }
+    //         Auth::login($user);
+    //     } else {
+    //         $user = Auth::user();
+    //         if (!$user) {
+    //             return response()->json(['message' => 'No autenticado'], 401);
+    //         }
+    //     }
+
+    //     // ------------------- OBTENER CARPETA -------------------
+    //     $folder = Folder::where('id', $id)
+    //         ->where('user_id', $user->id)
+    //         ->firstOrFail();
+
+    //     $folderPath = $folder->full_path;
+    //     $storagePath = Storage::disk('public')->path("documents/{$folderPath}");
+
+    //     if (!file_exists($storagePath)) {
+    //         return response()->json(['message' => 'Carpeta no encontrada'], 404);
+    //     }
+
+    //     // ------------------- CREAR ZIP -------------------
+    //     $tempDir = storage_path('app/public/temp');
+    //     if (!file_exists($tempDir)) {
+    //         mkdir($tempDir, 0777, true);
+    //     }
+
+    //     $zipFileName = preg_replace('/[^\w\-\.]/', '_', $folder->name) . '.zip';
+    //     $zipPath = $tempDir . "/{$zipFileName}";
+
+    //     $zip = new \ZipArchive();
+    //     if ($zip->open($zipPath, \ZipArchive::CREATE | \ZipArchive::OVERWRITE) !== true) {
+    //         return response()->json(['message' => 'Error creando zip'], 500);
+    //     }
+
+    //     // Iterar sobre archivos y subcarpetas recursivamente
+    //     $files = new \RecursiveIteratorIterator(
+    //         new \RecursiveDirectoryIterator($storagePath, \FilesystemIterator::SKIP_DOTS)
+    //     );
+
+    //     foreach ($files as $file) {
+    //         if (!$file->isDir()) {
+    //             $filePath = $file->getRealPath();
+    //             // Ruta relativa dentro del ZIP
+    //             $relativePath = substr($filePath, strlen($storagePath) + 1);
+    //             $zip->addFile($filePath, $relativePath);
+    //         }
+    //     }
+
+    //     $zip->close();
+
+    //     // ------------------- RETORNAR ZIP -------------------
+    //     return response()->download($zipPath)->deleteFileAfterSend(true);
+    // }
+
+
+    // esta función download permite descargar también carpetas aunque esten vacias
     public function download(Request $request, string $id)
-    {
-        // ------------------- AUTENTICACIÓN -------------------
-        $token = $request->query('token');
+{
+    // ------------------- AUTENTICACIÓN -------------------
+    $token = $request->query('token');
 
-        if ($token) {
-            // Buscar usuario por token (asegúrate de tener api_token en users)
-            $user = \App\Models\User::where('api_token', $token)->first();
-            if (!$user) {
-                return response()->json(['message' => 'Token inválido'], 401);
-            }
-            Auth::login($user);
-        } else {
-            $user = Auth::user();
-            if (!$user) {
-                return response()->json(['message' => 'No autenticado'], 401);
-            }
+    if ($token) {
+        // Buscar usuario por token
+        $user = \App\Models\User::where('api_token', $token)->first();
+        if (!$user) {
+            return response()->json(['message' => 'Token inválido'], 401);
         }
-
-        // ------------------- OBTENER CARPETA -------------------
-        $folder = Folder::where('id', $id)
-            ->where('user_id', $user->id)
-            ->firstOrFail();
-
-        $folderPath = $folder->full_path;
-        $storagePath = Storage::disk('public')->path("documents/{$folderPath}");
-
-        if (!file_exists($storagePath)) {
-            return response()->json(['message' => 'Carpeta no encontrada'], 404);
+        Auth::login($user);
+    } else {
+        $user = Auth::user();
+        if (!$user) {
+            return response()->json(['message' => 'No autenticado'], 401);
         }
-
-        // ------------------- CREAR ZIP -------------------
-        $tempDir = storage_path('app/public/temp');
-        if (!file_exists($tempDir)) {
-            mkdir($tempDir, 0777, true);
-        }
-
-        $zipFileName = preg_replace('/[^\w\-\.]/', '_', $folder->name) . '.zip';
-        $zipPath = $tempDir . "/{$zipFileName}";
-
-        $zip = new \ZipArchive();
-        if ($zip->open($zipPath, \ZipArchive::CREATE | \ZipArchive::OVERWRITE) !== true) {
-            return response()->json(['message' => 'Error creando zip'], 500);
-        }
-
-        // Iterar sobre archivos y subcarpetas recursivamente
-        $files = new \RecursiveIteratorIterator(
-            new \RecursiveDirectoryIterator($storagePath, \FilesystemIterator::SKIP_DOTS)
-        );
-
-        foreach ($files as $file) {
-            if (!$file->isDir()) {
-                $filePath = $file->getRealPath();
-                // Ruta relativa dentro del ZIP
-                $relativePath = substr($filePath, strlen($storagePath) + 1);
-                $zip->addFile($filePath, $relativePath);
-            }
-        }
-
-        $zip->close();
-
-        // ------------------- RETORNAR ZIP -------------------
-        return response()->download($zipPath)->deleteFileAfterSend(true);
     }
+
+    // ------------------- OBTENER CARPETA -------------------
+    $folder = Folder::where('id', $id)
+        ->where('user_id', $user->id)
+        ->firstOrFail();
+
+    $folderPath = $folder->full_path;
+    $storagePath = Storage::disk('public')->path("documents/{$folderPath}");
+
+    if (!file_exists($storagePath)) {
+        return response()->json(['message' => 'Carpeta no encontrada'], 404);
+    }
+
+    // ------------------- CREAR ZIP -------------------
+    $tempDir = storage_path('app/public/temp');
+    if (!file_exists($tempDir)) {
+        mkdir($tempDir, 0777, true);
+    }
+
+    $zipFileName = preg_replace('/[^\w\-\.]/', '_', $folder->name) . '.zip';
+    $zipPath = $tempDir . "/{$zipFileName}";
+
+    $zip = new \ZipArchive();
+    if ($zip->open($zipPath, \ZipArchive::CREATE | \ZipArchive::OVERWRITE) !== true) {
+        return response()->json(['message' => 'Error creando zip'], 500);
+    }
+
+    // ------------------- ITERAR ARCHIVOS Y CARPETAS -------------------
+    $iterator = new \RecursiveIteratorIterator(
+        new \RecursiveDirectoryIterator($storagePath, \FilesystemIterator::SKIP_DOTS),
+        \RecursiveIteratorIterator::SELF_FIRST
+    );
+
+    foreach ($iterator as $file) {
+        $filePath = $file->getRealPath();
+        $relativePath = substr($filePath, strlen($storagePath) + 1);
+
+        if ($file->isDir()) {
+            // Agregar carpeta vacía si no tiene archivos
+            $zip->addEmptyDir($relativePath);
+        } else {
+            $zip->addFile($filePath, $relativePath);
+        }
+    }
+
+    // Si la carpeta principal está completamente vacía
+    if (count(iterator_to_array($iterator)) === 0) {
+        $zip->addEmptyDir($folder->name);
+    }
+
+    $zip->close();
+
+    // ------------------- RETORNAR ZIP -------------------
+    return response()->download($zipPath)->deleteFileAfterSend(true);
+}
+
+
+
+
+
+
+
+
 }
