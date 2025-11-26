@@ -50,10 +50,19 @@ class FolderController extends Controller
 
         $documents = $documentsQuery->get(['id', 'name', 'file_path', 'folder_id', 'created_at'])
             ->map(function ($doc) {
+                $path = storage_path('app/public/' . $doc->file_path);
+                $size = file_exists($path) ? filesize($path) : 0;
                 return array_merge($doc->toArray(), [
                     'url' => $doc->url,
+                    'size' => $size,
                 ]);
             });
+
+        // Ordenar por tamaño si corresponde
+        if ($sortBy === 'tamaño') {
+            $documents = $documents->sortBy(fn($doc) => $doc['size'], SORT_REGULAR, $sortOrder === 'desc');
+        } 
+
 
         return response()->json([
             'folders' => $folders,

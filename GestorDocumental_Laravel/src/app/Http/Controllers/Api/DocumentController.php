@@ -52,7 +52,7 @@ class DocumentController extends Controller
         $folderPath = rtrim($this->buildFolderPath($folder), '/'); // normaliza la carpeta
 
         $storePath = $folderPath ? "documents/{$folderPath}" : "documents"; // evita doble slash
-        $path = $file->store($storePath, 'public');
+        $path = $file->storeAs($storePath, $file->getClientOriginalName(), 'public');
 
         $document = Document::create([
             'user_id' => $user->id,

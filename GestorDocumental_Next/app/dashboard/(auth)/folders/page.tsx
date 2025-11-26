@@ -682,24 +682,7 @@ export default function DocumentsPage() {
               <Button onClick={copySelectedItems}>
                 <Copy className="w-4 h-4 mr-1" /> Copiar
               </Button>
-            )}
-{/* 
-            {(selectedFolders.length > 0 || selectedDocuments.length > 0) && (
-              <Button
-                onClick={() => {
-                  selectedFolders.forEach((id) => {
-                    const folder = folders.find((f) => f.id === id)
-                    if (folder) downloadFolder(folder)
-                  })
-                  selectedDocuments.forEach((id) => {
-                    const doc = documents.find((d) => d.id === id)
-                    if (doc) downloadDocument(doc)
-                  })
-                }}
-              >
-                <Download className="w-4 h-4 mr-1" /> Descargar
-              </Button>
-            )} */}
+            )}         
 
             <div className="border-l pl-2 ml-2 flex items-center gap-2">
               <Button
@@ -1001,20 +984,19 @@ export default function DocumentsPage() {
 
               <Button
                 variant="outline"
-                onClick={() =>
-                  window.open(
-                    `${process.env.NEXT_PUBLIC_LARAVEL_URL}/storage/${infoModalDocument.file_path}`,
-                    "_blank"
-                  )
-                }
+                onClick={() => {
+                  const url = `${process.env.NEXT_PUBLIC_LARAVEL_URL}/storage/${infoModalDocument.file_path}`;
+                  console.log("URL que se abrirá:", url);
+                  window.open(url, "_blank");
+                }}
               >
                 <Eye size={18} />
               </Button>
+
             </div>
           </div>
         </div>
       )}
-
     </div>
   )
 }
