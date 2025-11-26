@@ -13,42 +13,21 @@ class FolderController extends Controller
 {
     /**
      * Mostrar carpetas y documentos dentro de una carpeta padre
-     * Soporta ordenamiento por nombre, fecha, tamaño y tipo
      */
     public function index(Request $request)
     {
         $user = Auth::user();
         $parentId = $request->query('folder_id'); // null = raíz
-        $sortBy = $request->query('sort', 'name'); // nombre, fecha, tamaño, tipo
-        $sortOrder = $request->query('order', 'asc'); // asc o desc
 
-        // Carpetas
-        $foldersQuery = Folder::where('user_id', $user->id)
-            ->where('parent_id', $parentId);
+        $folders = Folder::where('user_id', $user->id)
+            ->where('parent_id', $parentId)
+            ->orderBy('name')
+            ->get(['id', 'name', 'parent_id', 'created_at']);
 
-        if ($sortBy === 'fecha') {
-            $foldersQuery->orderBy('created_at', $sortOrder);
-        } else {
-            $foldersQuery->orderBy('name', $sortOrder);
-        }
-
-        $folders = $foldersQuery->get(['id', 'name', 'parent_id', 'created_at', 'updated_at']);
-
-        // Documentos
-        $documentsQuery = Document::where('user_id', $user->id)
-            ->where('folder_id', $parentId);
-
-        if ($sortBy === 'fecha') {
-            $documentsQuery->orderBy('created_at', $sortOrder);
-        } elseif ($sortBy === 'tamaño') {
-            $documentsQuery->orderByRaw('CAST(SUBSTRING_INDEX(file_path, "/", -1) AS UNSIGNED) ' . $sortOrder);
-        } elseif ($sortBy === 'tipo') {
-            $documentsQuery->orderByRaw('SUBSTRING_INDEX(name, ".", -1) ' . $sortOrder);
-        } else {
-            $documentsQuery->orderBy('name', $sortOrder);
-        }
-
-        $documents = $documentsQuery->get(['id', 'name', 'file_path', 'folder_id', 'created_at'])
+        $documents = Document::where('user_id', $user->id)
+            ->where('folder_id', $parentId)
+            ->orderBy('name')
+            ->get(['id', 'name', 'file_path', 'folder_id', 'created_at'])
             ->map(function ($doc) {
                 return array_merge($doc->toArray(), [
                     'url' => $doc->url,
@@ -189,6 +168,7 @@ class FolderController extends Controller
         return response()->json(['message' => 'Carpeta eliminada correctamente']);
     }
 
+
     /**
      * Construye la ruta completa de la carpeta
      */
@@ -203,6 +183,7 @@ class FolderController extends Controller
         return implode('/', $path);
     }
 
+  
     /**
      * Devuelve todas las carpetas del usuario en forma plana
      */
@@ -219,34 +200,12 @@ class FolderController extends Controller
                 'name' => $f->name,
                 'parent_id' => $f->parent_id,
                 'created_at' => $f->created_at,
-                'updated_at' => $f->updated_at,
                 'full_path' => $f->full_path,
             ]);
 
         return response()->json(['folders' => $folders]);
     }
 
-    /**
-     * Retorna carpetas más usadas (ordenadas por updated_at)
-     */
-    public function mostUsed()
-    {
-        $user = Auth::user();
-
-        $folders = Folder::where('user_id', $user->id)
-            ->orderBy('updated_at', 'desc')
-            ->limit(5)
-            ->get(['id', 'name', 'parent_id', 'created_at', 'updated_at'])
-            ->map(fn($f) => [
-                'id' => $f->id,
-                'name' => $f->name,
-                'parent_id' => $f->parent_id,
-                'full_path' => $f->full_path,
-                'updated_at' => $f->updated_at,
-            ]);
-
-        return response()->json(['folders' => $folders]);
-    }
 
     public function move(Request $request, string $id)
     {
@@ -267,6 +226,7 @@ class FolderController extends Controller
                 ->firstOrFail();
         }
 
+        // Construir nueva ruta en storage
         $oldPath = $folder->full_path;
         $newPath = $newParent ? "{$newParent->full_path}/{$folder->name}" : $folder->name;
 
@@ -275,8 +235,7 @@ class FolderController extends Controller
 
         // Actualizar BD
         $folder->update([
-            'parent_id' => $newParent->id ?? null,
-            'updated_at' => now() // Actualizar timestamp
+            'parent_id' => $newParent->id ?? null
         ]);
 
         return response()->json(['message' => 'Carpeta movida correctamente']);
@@ -334,68 +293,77 @@ class FolderController extends Controller
         ]);
     }
 
-    public function download(Request $request, string $id)
-    {
-        // ------------------- AUTENTICACIÓN -------------------
-        $token = $request->query('token');
+   public function download(Request $request, string $id)
+{
+    // ------------------- AUTENTICACIÓN -------------------
+    $token = $request->query('token');
 
-        if ($token) {
-            // Buscar usuario por token (asegúrate de tener api_token en users)
-            $user = \App\Models\User::where('api_token', $token)->first();
-            if (!$user) {
-                return response()->json(['message' => 'Token inválido'], 401);
-            }
-            Auth::login($user);
-        } else {
-            $user = Auth::user();
-            if (!$user) {
-                return response()->json(['message' => 'No autenticado'], 401);
-            }
+    if ($token) {
+        // Buscar usuario por token (asegúrate de tener api_token en users)
+        $user = \App\Models\User::where('api_token', $token)->first();
+        if (!$user) {
+            return response()->json(['message' => 'Token inválido'], 401);
         }
-
-        // ------------------- OBTENER CARPETA -------------------
-        $folder = Folder::where('id', $id)
-            ->where('user_id', $user->id)
-            ->firstOrFail();
-
-        $folderPath = $folder->full_path;
-        $storagePath = Storage::disk('public')->path("documents/{$folderPath}");
-
-        if (!file_exists($storagePath)) {
-            return response()->json(['message' => 'Carpeta no encontrada'], 404);
+        Auth::login($user);
+    } else {
+        $user = Auth::user();
+        if (!$user) {
+            return response()->json(['message' => 'No autenticado'], 401);
         }
-
-        // ------------------- CREAR ZIP -------------------
-        $tempDir = storage_path('app/public/temp');
-        if (!file_exists($tempDir)) {
-            mkdir($tempDir, 0777, true);
-        }
-
-        $zipFileName = preg_replace('/[^\w\-\.]/', '_', $folder->name) . '.zip';
-        $zipPath = $tempDir . "/{$zipFileName}";
-
-        $zip = new \ZipArchive();
-        if ($zip->open($zipPath, \ZipArchive::CREATE | \ZipArchive::OVERWRITE) !== true) {
-            return response()->json(['message' => 'Error creando zip'], 500);
-        }
-
-        // Iterar sobre archivos y subcarpetas recursivamente
-        $files = new \RecursiveIteratorIterator(
-            new \RecursiveDirectoryIterator($storagePath, \FilesystemIterator::SKIP_DOTS)
-        );
-
-        foreach ($files as $file) {
-            if (!$file->isDir()) {
-                $filePath = $file->getRealPath();
-                // Ruta relativa dentro del ZIP
-                $relativePath = substr($filePath, strlen($storagePath) + 1);
-                $zip->addFile($filePath, $relativePath);
-            }
-        }
-
-        $zip->close();
-
-        // ------------------- RETORNAR ZIP -------------------
-        return response()->download($zipPath)->deleteFileAfterSend(true);
     }
+
+    // ------------------- OBTENER CARPETA -------------------
+    $folder = Folder::where('id', $id)
+        ->where('user_id', $user->id)
+        ->firstOrFail();
+
+    $folderPath = $folder->full_path;
+    $storagePath = Storage::disk('public')->path("documents/{$folderPath}");
+
+    if (!file_exists($storagePath)) {
+        return response()->json(['message' => 'Carpeta no encontrada'], 404);
+    }
+
+    // ------------------- CREAR ZIP -------------------
+    $tempDir = storage_path('app/public/temp');
+    if (!file_exists($tempDir)) {
+        mkdir($tempDir, 0777, true);
+    }
+
+    $zipFileName = preg_replace('/[^\w\-\.]/', '_', $folder->name) . '.zip';
+    $zipPath = $tempDir . "/{$zipFileName}";
+
+    $zip = new \ZipArchive();
+    if ($zip->open($zipPath, \ZipArchive::CREATE | \ZipArchive::OVERWRITE) !== true) {
+        return response()->json(['message' => 'Error creando zip'], 500);
+    }
+
+    // Iterar sobre archivos y subcarpetas recursivamente
+    $files = new \RecursiveIteratorIterator(
+        new \RecursiveDirectoryIterator($storagePath, \FilesystemIterator::SKIP_DOTS)
+    );
+
+    foreach ($files as $file) {
+        if (!$file->isDir()) {
+            $filePath = $file->getRealPath();
+            // Ruta relativa dentro del ZIP
+            $relativePath = substr($filePath, strlen($storagePath) + 1);
+            $zip->addFile($filePath, $relativePath);
+        }
+    }
+
+    $zip->close();
+
+    // ------------------- RETORNAR ZIP -------------------
+    return response()->download($zipPath)->deleteFileAfterSend(true);
 }
+
+
+
+
+
+
+
+}
+
+

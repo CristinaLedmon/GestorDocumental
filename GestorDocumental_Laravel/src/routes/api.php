@@ -35,8 +35,8 @@ Route::middleware(['auth:sanctum'])->group(function () {
     // ============================================
 
     // --- Carpetas ---
-    Route::get('/folders/tree', [FolderController::class, 'tree']);
     Route::get('/folders/all', [FolderController::class, 'all']);
+    Route::get('/folders/most-used', [FolderController::class, 'mostUsed']);
     Route::get('/folders', [FolderController::class, 'index']);
 
     Route::get('/folders/{id}', [FolderController::class, 'show'])->where('id', '[0-9]+');
@@ -46,10 +46,6 @@ Route::middleware(['auth:sanctum'])->group(function () {
     Route::patch('/folders/{id}/move', [FolderController::class, 'move']);
     Route::post('/folders/{id}/copy', [FolderController::class, 'copy']);
     Route::get('folders/{id}/download', [FolderController::class, 'download']);
-   
-
-
-
 
     // --- Documentos ---
     Route::get('/documents', [DocumentController::class, 'index']);
@@ -57,10 +53,10 @@ Route::middleware(['auth:sanctum'])->group(function () {
     Route::get('/documents/{id}', [DocumentController::class, 'show'])->where('id', '[0-9]+');
     Route::get('/documents/{id}/download', [DocumentController::class, 'download'])->where('id', '[0-9]+');
     Route::get('/documents/{id}/preview', [DocumentController::class, 'preview'])->where('id', '[0-9]+');
-    Route::put('/documents/{id}/move', [DocumentController::class, 'move'])->where('id', '[0-9]+');
+    Route::patch('/documents/{id}/move', [DocumentController::class, 'move'])->where('id', '[0-9]+');
     Route::delete('/documents/{id}', [DocumentController::class, 'destroy'])->where('id', '[0-9]+');
     Route::post('/documents/{id}/copy', [DocumentController::class, 'copy']);
-
+    Route::put('/documents/{id}/rename', [DocumentController::class, 'rename'])->where('id', '[0-9]+');
 
     // Info del usuario autenticado
     Route::get('/me', function (Request $request) {
@@ -76,7 +72,7 @@ Route::middleware(['auth:sanctum'])->group(function () {
                 'name' => $user->name,
                 'email' => $user->email,
                 'role' => $user->role,
-                'permissions' => $user->permissions, // Devuelve todos los permisos del usuario
+                'permissions' => $user->permissions,
             ],
         ]);
     });
