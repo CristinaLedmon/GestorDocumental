@@ -5,7 +5,7 @@ import fetchModel from "@/lib/fetch-utils"
 import useAuth from "@/hooks/useAuth"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
-import {  Folder,  File,  ImageIcon,  ArrowLeft,  ChevronRight,  ChevronDown,  Plus,  Upload,  Trash2,  Info,  Copy,  Download,  Grid3x3,  List,  Clock,  ArrowUpDown,} from "lucide-react"
+import {  Folder,  File,  ImageIcon,  ArrowLeft,  ChevronRight,  ChevronDown,  Plus,  Upload,  Trash2,  Info,  Copy,  Download,  Grid3x3,  List,  Clock,  ArrowUpDown, Eye,} from "lucide-react"
 
 // ========================INTERFACES==============================
 interface FolderType {
@@ -918,7 +918,16 @@ export default function DocumentsPage() {
       {/* INFO MODAL - CARPETA */}
       {infoModalFolder && (
         <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
-          <div className="bg-white rounded-lg p-6 w-96 shadow-lg">
+          <div className="bg-white rounded-lg p-6 w-96 shadow-lg relative">
+            
+            {/* Botón X */}
+            <button
+              onClick={() => setInfoModalFolder(null)}
+              className="absolute top-3 right-3 text-gray-500 hover:text-gray-700"
+            >
+              &#10005; {/* Símbolo X */}
+            </button>
+
             <h2 className="text-xl font-bold mb-4">Información de Carpeta</h2>
             <div className="space-y-3">
               <div>
@@ -943,9 +952,6 @@ export default function DocumentsPage() {
               <Button onClick={updateFolderName} className="flex-1">
                 Guardar
               </Button>
-              <Button variant="outline" onClick={() => setInfoModalFolder(null)} className="flex-1">
-                Cerrar
-              </Button>
               <Button variant="outline" onClick={() => downloadFolder(infoModalFolder)}>
                 <Download size={18} />
               </Button>
@@ -954,10 +960,20 @@ export default function DocumentsPage() {
         </div>
       )}
 
+
       {/* INFO MODAL - DOCUMENTO */}
       {infoModalDocument && (
         <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
-          <div className="bg-white rounded-lg p-6 w-96 shadow-lg">
+          <div className="bg-white rounded-lg p-6 w-96 shadow-lg relative">
+            
+            {/* Botón X */}
+            <button
+              onClick={() => setInfoModalDocument(null)}
+              className="absolute top-3 right-3 text-gray-500 hover:text-gray-700"
+            >
+              &#10005; {/* Esto es el símbolo X */}
+            </button>
+
             <h2 className="text-xl font-bold mb-4">Información de Documento</h2>
             <div className="space-y-3">
               <div>
@@ -978,16 +994,27 @@ export default function DocumentsPage() {
               <Button onClick={updateDocumentName} className="flex-1">
                 Guardar
               </Button>
-              <Button variant="outline" onClick={() => setInfoModalDocument(null)} className="flex-1">
-                Cerrar
-              </Button>
+
               <Button variant="outline" onClick={() => downloadDocument(infoModalDocument)}>
                 <Download size={18} />
+              </Button>
+
+              <Button
+                variant="outline"
+                onClick={() =>
+                  window.open(
+                    `${process.env.NEXT_PUBLIC_LARAVEL_URL}/storage/${infoModalDocument.file_path}`,
+                    "_blank"
+                  )
+                }
+              >
+                <Eye size={18} />
               </Button>
             </div>
           </div>
         </div>
       )}
+
     </div>
   )
 }
